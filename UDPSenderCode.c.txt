@@ -1,0 +1,47 @@
+#include "contiki.h"
+#include "net/netstack.h"
+#include "net/ip/uip.h"
+#include "sys/etimer.h"
+#include "simple-udp.h"
+#include "stdio.h"
+
+#define DEST_ADDR "fd00::1" // The 21st node's address (Collector)
+#define PORT 5000
+#define TEMPERATURE_SENSOR "sensor/temperature"
+
+static struct etimer et;
+static uip_ipaddr_t dest_ipaddr;
+static int temperature_value = 0;
+
+PROCESS(sensor_node_process, "Sensor Node Process");
+AUTOSTART_PROCESSES(&sensor_node_process);
+
+PROCESS_THREAD(sensor_node_process, ev, data)
+{
+  PROCESS_BEGIN();
+
+  // Set destination address of the collector node
+  uip_ip6addr(&dest_ipaddr, 0xFD00, 0, 0, 0, 0, 0, 0, 1);
+
+  // Setup periodic timer
+  etimer_set(&et, CLOCK_SECOND * 10);
+
+  while(1) {
+    PROCESS_WAIT_EVENT();
+
+    if (etimer_expired(&et)) {
+      // Simulate temperature (random value for testing)
+      temperature_value = (random_rand() % 100);
+
+      // Send temperature data to collector node
+      char buffer[64];
+      snprintf(buffer, sizeof(buffer), "Temperature: %d", temperature_value);
+      simple_udp_sendto(&udp_conn, buffer, strlen(buffer) + 1, &dest_ipaddr);
+
+      // Reset timer
+      etimer_reset(&et);
+    }
+  }
+
+  PROCESS_END();
+}
